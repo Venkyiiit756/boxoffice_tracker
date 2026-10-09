@@ -42,12 +42,13 @@ HEADER_MAP: list[tuple[str, re.Pattern]] = [(m, re.compile(p, re.I)) for m, p in
     ("cum_gross_inr", r"(cumul|cume|total|overall).*(gross|collection|revenue)|(gross|collection).*(cumul|cume)"),
     ("net_inr", r"\bnet\b"),
     ("gross_inr", r"gross|collection|revenue|earn"),
+    ("sold_out", r"sold[\s-]*out"),   # must precede "tickets": its \bsold\b would otherwise swallow "SOLD OUT"
     ("tickets", r"ticket|footfall|admit|\bsold\b"),
     ("shows", r"\bshows?\b"),
-    ("occupancy_pct", r"occup|fill"),
+    ("occupancy_pct", r"occup|\bocc\b|fill"),
 ]]
 _PCT_METRICS = {"occupancy_pct"}
-_COUNT_METRICS = {"tickets", "shows", "cum_tickets", "tickets_excl_blocked", "cum_tickets_excl_blocked"}
+_COUNT_METRICS = {"tickets", "shows", "cum_tickets", "tickets_excl_blocked", "cum_tickets_excl_blocked", "sold_out"}
 
 
 def metric_for_header(header: str) -> str | None:
