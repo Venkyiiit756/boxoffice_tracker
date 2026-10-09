@@ -10,7 +10,17 @@
           "pages": [
             {
               "url": "https://moviemintbo.com/movie/drishyam-the-conclusion?date={yyyymmdd}",
-              "default_type": "tracked_completed_shows"
+              "default_type": "tracked_completed_shows",
+              "tabs": [
+                "City Wise"
+              ]
+            },
+            {
+              "url": "https://moviemintbo.com/movie/drishyam-the-conclusion?kind=advance",
+              "default_type": "advance_booking",
+              "tabs": [
+                "City Wise"
+              ]
             }
           ]
         },
@@ -28,7 +38,9 @@
         },
         "cinenation": {
           "find_on": "https://www.thecinenation.live/",
-          "tokens": ["drishyam"],
+          "tokens": [
+            "drishyam"
+          ],
           "max_links": 1,
           "default_type": "unclassified"
         }

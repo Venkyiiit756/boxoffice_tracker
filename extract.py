@@ -46,9 +46,10 @@ HEADER_MAP: list[tuple[str, re.Pattern]] = [(m, re.compile(p, re.I)) for m, p in
     ("tickets", r"ticket|footfall|admit|\bsold\b"),
     ("shows", r"\bshows?\b"),
     ("occupancy_pct", r"occup|\bocc\b|fill"),
+    ("venues", r"\bvenues?\b"),
 ]]
 _PCT_METRICS = {"occupancy_pct"}
-_COUNT_METRICS = {"tickets", "shows", "cum_tickets", "tickets_excl_blocked", "cum_tickets_excl_blocked", "sold_out"}
+_COUNT_METRICS = {"tickets", "shows", "cum_tickets", "tickets_excl_blocked", "cum_tickets_excl_blocked", "sold_out", "venues"}
 
 
 def metric_for_header(header: str) -> str | None:
@@ -106,6 +107,15 @@ COVERAGE_RX = re.compile(r"(coverage|pan[- ]?india|national chains?|cities|state
 UPDATED_RX = re.compile(r"((?:last\s+)?updated[^\n|]{0,60}|as of[^\n|]{0,60}|data (?:as|till|upto|up to)[^\n|]{0,60})", re.I)
 
 
+_PAGE_DATE_RX = re.compile(r"(?:breakdown for|advance data)\s*:\s*[^\n]*?[—–-]\s*([^\n]+)", re.I)
+
+
+def extract_page_date(text: str, default_year: int | None = None) -> str:
+    """Date the page itself says its table is for (MovieMint: 'Breakdown for: Day 8 — October 9, 2026'), else ''."""
+    m = _PAGE_DATE_RX.search(text or "")
+    return parse_date(m.group(1), default_year)[0] if m else ""
+
+
 def extract_updated(text: str) -> tuple[str, str]:
     """Return (raw 'Updated ...' text with its neighbouring line for the date, parsed ISO or '')."""
     lines = [l.strip() for l in text.splitlines() if l.strip()]
@@ -140,19 +150,21 @@ def extract_tables(tables: list[dict], default_type: str, default_year: int | No
         dtype = classify_section(section, default_type)
         metrics = [metric_for_header(h) for h in header]
         date_col = metrics.index("show_date") if "show_date" in metrics else None
+        # leading columns before the first recognised metric are row labels (STATE; CITY + STATE) and go into `scope`
+        n_label = max(next((i for i, m in enumerate(metrics) if m), len(metrics)), 1) if date_col is None else 0
         for row in body:
             row_scope, show_raw, show_iso, note = section, "", date_hint, ""
             if date_col is not None and date_col < len(row):
                 show_raw = row[date_col]
                 show_iso, note = parse_date(show_raw, default_year)
             elif row:
-                row_scope = (section + " | " + row[0]).strip(" |")   # e.g. state-wise tables: first column is the label
+                row_scope = " | ".join(x for x in [section, *row[:n_label]] if x)   # e.g. state / city tables: leading label columns
             has_digits = any(re.search(r"\d", c) for c in row[1:] if c)
             # keep placeholder rows ("₹ - Cr") for a recognised show date so "not yet available" is visible in the data
             if not has_digits and not (date_col is not None and show_iso):
                 continue
             for idx, cell in enumerate(row):
-                if cell == "" or idx == date_col or (date_col is None and idx == 0):
+                if cell == "" or idx == date_col or (date_col is None and idx < n_label):
                     continue
                 head = header[idx] if idx < len(header) else f"col{idx}"
                 metric = metrics[idx] if idx < len(metrics) else None
@@ -218,6 +230,7 @@ def looks_premium_gated(text: str) -> bool:
 def analyse(url: str, title: str, text: str, tables: list[dict], default_type: str,
             default_year: int | None, date_hint: str = "") -> PageResult:
     res = PageResult()
+    date_hint = extract_page_date(text, default_year) or date_hint   # the page's own stated date beats the URL guess
     res.records = extract_tables(tables, default_type, default_year, date_hint)
     if not res.records:
         res.records = extract_text_pairs(text, default_type, date_hint)

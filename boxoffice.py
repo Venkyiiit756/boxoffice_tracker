@@ -226,7 +226,7 @@ def load_page(sess: Session, url: str):
 # ------------------------------------------------------------------ one page -> records
 
 def collect_page(sess: Session, store: Store, source: str, movie: dict, url: str, default_type: str,
-                 date_hint: str, stamp: str, save_raw: bool, raw_dir: Path) -> str:
+                 date_hint: str, stamp: str, save_raw: bool, raw_dir: Path, tabs: tuple = ()) -> str:
     base = {"collected_at_ist": stamp, "source": source, "movie_key": movie["key"], "url": url}
     page, code, status, detail = load_page(sess, url)
     if page is None:
@@ -240,6 +240,17 @@ def collect_page(sess: Session, store: Store, source: str, movie: dict, url: str
                               "detail": "stopping for this site; no bypass attempted"})
             return pstatus
         tables = page.evaluate(TABLES_JS)
+        tab_notes = []
+        for tab in tabs:                      # client-side tab switch on the already-loaded page; no new page load
+            time.sleep(random.uniform(2, 4))
+            try:
+                page.get_by_text(tab, exact=True).first.click(timeout=5000)
+                time.sleep(2.5)
+                for t in page.evaluate(TABLES_JS):
+                    t["heading"] = f"{t['heading']} [{tab}]".strip()
+                    tables.append(t)
+            except (PWTimeout, PWError) as e:
+                tab_notes.append(f"tab '{tab}' not read: {type(e).__name__}")
         res = analyse(page.url, title, text, tables, default_type, movie.get("year"), date_hint)
         rows = []
         for r in res.records:
@@ -257,6 +268,7 @@ def collect_page(sess: Session, store: Store, source: str, movie: dict, url: str
                          "source_url": page.url, "extraction": "text", "notes": ""})
         n_new = store.add_records(rows)
         st, det = "ok", f"proxied_blocked_subrequests={len(sess.blocked_subrequests)}" if sess.blocked_subrequests else ""
+        det = "; ".join(x for x in [det, *tab_notes] if x)
         if not res.records:
             st = "premium_gated_suspected" if looks_premium_gated(text) else "no_data_extracted"
             det = "page loaded but no recognisable data; raw dump saved. " + det
@@ -335,7 +347,7 @@ def cmd_run(args) -> int:
                         url = pg["url"].replace("{yyyymmdd}", today)
                         hint = today[:4] + "-" + today[4:6] + "-" + today[6:] if "{yyyymmdd}" in pg["url"] else ""
                         st = collect_page(sess, store, source, movie, url, pg.get("default_type", "unclassified"),
-                                          hint, stamp, args.save_raw, out / "raw")
+                                          hint, stamp, args.save_raw, out / "raw", tuple(pg.get("tabs", ())))
                         if st in STOP_SITE:
                             break
         finally:

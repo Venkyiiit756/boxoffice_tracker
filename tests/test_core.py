@@ -3,7 +3,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 from normalize import Robots, parse_amount, parse_date, parse_percent, parse_site_updated, unit_from_text
-from extract import blocked_flag, classify_section, metric_for_header, extract_tables, detect_page_status
+from extract import blocked_flag, classify_section, metric_for_header, extract_tables, detect_page_status, extract_page_date
 
 
 @pytest.mark.parametrize("raw,val", [
@@ -60,3 +60,21 @@ def test_table_extraction_keeps_unmapped_and_types_separate():
     assert by[("advance_booking", "gross_inr")].value_num == 1_250_000
     assert by[("tracked_completed_shows", "gross_inr")].value_num == 45_000_000
     assert by[("advance_booking", "unmapped:Mood")].raw_value == "hi"
+
+
+def test_city_table_labels_go_to_scope_and_venues_is_a_metric():
+    t = [{"heading": "Performance Breakdown [City Wise]", "caption": "",
+          "rows": [["CITY", "STATE", "GROSS", "SHOWS", "TICKETS SOLD", "VENUES", "OCCUPANCY (%)"],
+                   ["Mumbai", "Maharashtra", "₹15.05L", "238", "5.63K", "93", "10.04%"]]}]
+    recs = extract_tables(t, "tracked_completed_shows", 2026, "2026-10-09")
+    by = {r.metric: r for r in recs}
+    assert not any(m.startswith("unmapped") for m in by)
+    assert by["venues"].value_num == 93 and by["gross_inr"].value_num == 1_505_000 and by["occupancy_pct"].value_num == 10.04
+    assert all(r.scope == "Performance Breakdown [City Wise] | Mumbai | Maharashtra" for r in recs)
+    assert all(r.data_type == "tracked_completed_shows" and r.show_date == "2026-10-09" for r in recs)
+
+
+def test_page_stated_date():
+    assert extract_page_date("Breakdown for: Day 8 — October 9, 2026\nx") == "2026-10-09"
+    assert extract_page_date("Advance data: Day 9 — October 10, 2026\nx") == "2026-10-10"
+    assert extract_page_date("nothing here") == ""
