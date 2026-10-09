@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+data/raw/
+data/discovery/
+data/.run.lock
+data/run.log
