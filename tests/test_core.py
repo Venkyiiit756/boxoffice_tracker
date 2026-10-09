@@ -40,6 +40,8 @@ def test_headers_and_flags():
     assert metric_for_header("Cumulative Gross") == "cum_gross_inr"
     assert metric_for_header("Gross (Without Block Seats)") == "gross_excl_blocked_inr"
     assert metric_for_header("Tickets Sold") == "tickets" and metric_for_header("Footfalls") == "tickets"
+    assert metric_for_header("SOLD OUT") == "sold_out" and metric_for_header("TICKETS SOLD") == "tickets"
+    assert metric_for_header("OCC %") == "occupancy_pct"
     assert metric_for_header("India Net") == "net_inr" and metric_for_header("Mood") is None
     assert blocked_flag("Gross", "Advance (Without Block Seats)") == "excluding_blocked"
     assert classify_section("Advance Booking") == "advance_booking"

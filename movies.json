@@ -10,7 +10,7 @@
           "pages": [
             {
               "url": "https://moviemintbo.com/movie/drishyam-the-conclusion?date={yyyymmdd}",
-              "default_type": "unclassified"
+              "default_type": "tracked_completed_shows"
             }
           ]
         },
